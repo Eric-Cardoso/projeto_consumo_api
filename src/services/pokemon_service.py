@@ -1,9 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from schemas.pokemon_schema import CriarPokemon, NomePokemon
+from schemas.pokemon_schema import CriarPokemon, NomePokemon, AtualizarPokemon
 from models.pokemon_model import Pokemon
 from sqlalchemy import select
 import deep_translator, httpx
-
 
 async def criar_pokemon(dados_pokemon: dict, sessao: AsyncSession) -> dict:
 
@@ -69,6 +68,46 @@ async def listar_pokemon(nome_pokemon: str, sessao: AsyncSession) -> dict:
     return {
         'banco': db_pokemon,
         'api': api_pokemon,
+    }
+
+async def atualizar_pokemon(
+        id_pokemon: int, 
+        dados_pokemon: dict, 
+        sessao: AsyncSession
+    ) -> dict:
+    
+    try:
+        dados_validados = AtualizarPokemon(
+            nome=dados_pokemon['nome'],
+            altura=dados_pokemon['altura'],
+            peso=dados_pokemon['peso'],
+            experiencia_base=dados_pokemon['experiencia_base'],
+            tipo=dados_pokemon['tipo'],
+            habilidade=dados_pokemon['habilidade'],
+            movimento=dados_pokemon['movimento'],
+        )
+
+        db_pokemon = await sessao.scalar(
+            select(Pokemon)
+            .where(Pokemon.id == id_pokemon)
+        )
+
+        if not db_pokemon:
+            raise Exception('Pokemon não encontrado')
+
+        for campo, valor in dados_validados.model_dump().items():
+            setattr(db_pokemon, campo, valor)
+
+        await sessao.commit()
+        await sessao.refresh(db_pokemon)
+    except Exception:
+        # Desfaz alterações parciais antes de propagar o erro
+        await sessao.rollback()
+        raise
+
+    return {
+        'mensagem': 'Pokemon atualizado com sucesso',
+        'pokemon': db_pokemon,
     }
     
     

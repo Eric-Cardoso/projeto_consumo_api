@@ -1,6 +1,11 @@
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
-from services.pokemon_service import criar_pokemon, listar_pokemon, Pokemon
+from services.pokemon_service import (
+    criar_pokemon, 
+    listar_pokemon, 
+    atualizar_pokemon,
+    Pokemon,
+)
 
 def dados_pokemon() -> dict:
     dados_pokemon = {
@@ -429,6 +434,270 @@ class TestPokemon(unittest.IsolatedAsyncioTestCase):
         self.sessao.scalar.assert_awaited_once()
         cliente_contexto.get.assert_awaited_once()
         instancia_tradutor.translate.assert_called_once()
+
+    async def test_atualizar_pokemon_deve_retornar_o_pokemon_atualizado(
+        self
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        dados_pokemon = {
+            'nome': 'greninja',
+            'altura': 24.65,
+            'peso': 86.87,
+            'experiencia_base': 100,
+            'tipo': 'água',
+            'habilidade': 'ash greninja',
+            'movimento': 'as dos ares',
+        }
+
+        resultado_esperado = 'Pokemon atualizado com sucesso'
+
+        self.sessao.scalar.return_value = Pokemon(
+            id=1,
+            nome=dados_pokemon['nome'],
+            altura=dados_pokemon['altura'],
+            peso=dados_pokemon['peso'],
+            experiencia_base=dados_pokemon['experiencia_base'],
+            tipo=dados_pokemon['tipo'],
+            habilidade=dados_pokemon['habilidade'],
+            movimento=dados_pokemon['movimento'],
+        )
+
+        # Act
+        resultado = await atualizar_pokemon(
+            id_pokemon=id_pokemon,
+            dados_pokemon=dados_pokemon,
+            sessao=self.sessao,
+        )
+
+        # Assert
+        self.assertEqual(resultado['mensagem'], resultado_esperado)
+
+        # Garante que as dependências foram chamadas corretamente
+        self.sessao.scalar.assert_awaited_once()
+        self.sessao.commit.assert_awaited_once()
+        self.sessao.refresh.assert_awaited_once()
+    
+    async def test_atualizar_pokemon_compara_dados_enviados_com_retornados(
+        self
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        dados_pokemon = {
+            'nome': 'greninja',
+            'altura': 24.65,
+            'peso': 86.87,
+            'experiencia_base': 100,
+            'tipo': 'água',
+            'habilidade': 'ash greninja',
+            'movimento': 'as dos ares',
+        }
+
+        self.sessao.scalar.return_value = Pokemon(
+            id=1,
+            nome=dados_pokemon['nome'],
+            altura=dados_pokemon['altura'],
+            peso=dados_pokemon['peso'],
+            experiencia_base=dados_pokemon['experiencia_base'],
+            tipo=dados_pokemon['tipo'],
+            habilidade=dados_pokemon['habilidade'],
+            movimento=dados_pokemon['movimento'],
+        )
+
+        # Act
+        resultado = await atualizar_pokemon(
+            id_pokemon=id_pokemon,
+            dados_pokemon=dados_pokemon,
+            sessao=self.sessao,
+        )
+
+        db_pokemon = resultado['pokemon']
+
+        # Assert
+        self.assertEqual(db_pokemon.nome, dados_pokemon['nome'])
+        self.assertEqual(db_pokemon.altura, dados_pokemon['altura'])
+        self.assertEqual(db_pokemon.peso, dados_pokemon['peso'])
+        self.assertEqual(
+            db_pokemon.experiencia_base, dados_pokemon['experiencia_base']
+        )
+        self.assertEqual(db_pokemon.tipo, dados_pokemon['tipo'])
+        self.assertEqual(db_pokemon.habilidade, dados_pokemon['habilidade'])
+        self.assertEqual(db_pokemon.movimento, dados_pokemon['movimento'])
+
+        # Garante que as dependências foram chamadas corretamente
+        self.sessao.scalar.assert_awaited_once()
+        self.sessao.commit.assert_awaited_once()
+        self.sessao.refresh.assert_awaited_once()
+    
+    async def test_atualizar_pokemon_levanta_excecao_se_dados_enviados_forem_invalidos(
+        self
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        dados_pokemon = {
+            'nome': True,
+            'altura': 24.21,
+            'peso': 87,
+            'experiencia_base': 100,
+            'tipo': 'água',
+            'habilidade': 'ash greninja',
+            'movimento': 'as dos ares',
+        }
+
+        # Act
+        with self.assertRaises(Exception):
+            await atualizar_pokemon(
+                id_pokemon=id_pokemon,
+                dados_pokemon=dados_pokemon,
+                sessao=self.sessao,
+            )
+
+        # Assert
+        # Garante que nada seja executado após a falha na validação
+        self.sessao.scalar.assert_not_awaited()
+        self.sessao.commit.assert_not_awaited()
+        self.sessao.refresh.assert_not_awaited()
+
+    async def test_atualizar_pokemon_levanta_excecao_se_o_scalar_falhar(
+        self
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        dados_pokemon = {
+            'nome': 'frogadir',
+            'altura': 24.21,
+            'peso': 87,
+            'experiencia_base': 100,
+            'tipo': 'água',
+            'habilidade': 'ash greninja',
+            'movimento': 'as dos ares',
+        }
+
+        self.sessao.scalar.side_effect = Exception(
+            'Erro ao buscar dados no banco'
+        )
+
+        # Act
+        with self.assertRaises(Exception):
+            await atualizar_pokemon(
+                id_pokemon=id_pokemon,
+                dados_pokemon=dados_pokemon,
+                sessao=self.sessao,
+            )
+
+        # Assert
+        # Garante que a origem do problema foi o scalar
+        self.sessao.scalar.assert_awaited_once()
+        
+        # Garante que nada seja executado após falha ao buscar dados no banco
+        self.sessao.commit.assert_not_awaited()
+        self.sessao.refresh.assert_not_awaited()
+
+    async def test_atualizar_pokemon_levanta_excecao_se_o_commit_falhar(
+        self
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        dados_pokemon = {
+            'nome': 'frogadir',
+            'altura': 24.21,
+            'peso': 87,
+            'experiencia_base': 100,
+            'tipo': 'água',
+            'habilidade': 'ash greninja',
+            'movimento': 'as dos ares',
+        }
+
+        self.sessao.scalar.return_value = Pokemon(
+            nome=dados_pokemon['nome'],
+            altura=dados_pokemon['altura'],
+            peso=dados_pokemon['peso'],
+            experiencia_base=dados_pokemon['experiencia_base'],
+            tipo=dados_pokemon['tipo'],
+            habilidade=dados_pokemon['habilidade'],
+            movimento=dados_pokemon['movimento'],
+        )
+
+        self.sessao.commit.side_effect = Exception(
+            'Erro ao executar commit'
+        )
+        
+        # Act
+        with self.assertRaises(Exception):
+            await atualizar_pokemon(
+                id_pokemon=id_pokemon,
+                dados_pokemon=dados_pokemon,
+                sessao=self.sessao,
+            )
+
+        # Assert
+        # Garante que a origem do problema foi o commit
+        self.sessao.scalar.assert_awaited_once()
+        self.sessao.commit.assert_awaited_once()
+        
+        # Garante que nada seja executado após falha no commit
+        self.sessao.refresh.assert_not_awaited()
+
+    async def test_atualizar_pokemon_levanta_excecao_se_o_refresh_falhar(
+        self
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        dados_pokemon = {
+            'nome': 'frogadir',
+            'altura': 24.21,
+            'peso': 87,
+            'experiencia_base': 100,
+            'tipo': 'água',
+            'habilidade': 'ash greninja',
+            'movimento': 'as dos ares',
+        }
+
+        self.sessao.scalar.return_value = Pokemon(
+            nome=dados_pokemon['nome'],
+            altura=dados_pokemon['altura'],
+            peso=dados_pokemon['peso'],
+            experiencia_base=dados_pokemon['experiencia_base'],
+            tipo=dados_pokemon['tipo'],
+            habilidade=dados_pokemon['habilidade'],
+            movimento=dados_pokemon['movimento'],
+        )
+
+        self.sessao.refresh.side_effect = Exception(
+            'Erro ao executar o refresh'
+        )
+        
+        # Act
+        # Garante que a função propaga a exceção quando o refresh falhar
+        with self.assertRaises(Exception):
+            await atualizar_pokemon(
+                id_pokemon=id_pokemon,
+                dados_pokemon=dados_pokemon,
+                sessao=self.sessao,
+            )
+
+        # Assert
+        # Garante que a origem do problema foi o refresh
+        self.sessao.scalar.assert_awaited_once()
+        self.sessao.commit.assert_awaited_once()
+        self.sessao.refresh.assert_awaited_once()
+        
+
+    
+    
+
 
 
         
