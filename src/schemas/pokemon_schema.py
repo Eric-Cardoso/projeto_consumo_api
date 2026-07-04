@@ -9,3 +9,6 @@ class CriarPokemon(BaseModel):
     tipo: str = Field(min_length=3)
     habilidade: str = Field(min_length=3)
     movimento: str = Field(min_length=3)
+
+class NomePokemon(BaseModel):
+    nome: str
