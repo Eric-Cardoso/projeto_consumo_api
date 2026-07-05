@@ -4,6 +4,7 @@ from services.pokemon_service import (
     criar_pokemon, 
     listar_pokemon, 
     atualizar_pokemon,
+    deletar_pokemon,
     Pokemon,
 )
 
@@ -29,7 +30,7 @@ class TestPokemon(unittest.IsolatedAsyncioTestCase):
         self.sessao.scalar = AsyncMock()
         self.sessao.commit = AsyncMock()
         self.sessao.refresh = AsyncMock()
-    
+        self.sessao.delete = AsyncMock()
     
     async def test_criar_pokemon_deve_retornar_pokemon_criado_com_sucesso(
         self
@@ -133,6 +134,7 @@ class TestPokemon(unittest.IsolatedAsyncioTestCase):
 
         # Act
         
+        # Garante que a função propaga a exceção quando os dados forem inválidos
         with self.assertRaises(Exception):
             await criar_pokemon(
             dados_pokemon=dados_errados, 
@@ -551,6 +553,7 @@ class TestPokemon(unittest.IsolatedAsyncioTestCase):
         }
 
         # Act
+        # Garante que a função propaga a exceção quando os dados forem inválidos
         with self.assertRaises(Exception):
             await atualizar_pokemon(
                 id_pokemon=id_pokemon,
@@ -586,6 +589,7 @@ class TestPokemon(unittest.IsolatedAsyncioTestCase):
         )
 
         # Act
+        # Garante que a função propaga a exceção quando o scalar falhar
         with self.assertRaises(Exception):
             await atualizar_pokemon(
                 id_pokemon=id_pokemon,
@@ -633,6 +637,7 @@ class TestPokemon(unittest.IsolatedAsyncioTestCase):
         )
         
         # Act
+        # Garante que a função propaga a exceção quando o commit falhar
         with self.assertRaises(Exception):
             await atualizar_pokemon(
                 id_pokemon=id_pokemon,
@@ -694,6 +699,194 @@ class TestPokemon(unittest.IsolatedAsyncioTestCase):
         self.sessao.commit.assert_awaited_once()
         self.sessao.refresh.assert_awaited_once()
         
+    async def test_deletar_pokemon_deve_retornar_pokemon_deletado_com_sucesso(
+        self,
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        nome_pokemon = 'pikachu'
+
+        pockemon_mockado = Pokemon(
+            nome='pikachu',
+            altura=25.42,
+            peso=65.33,
+            experiencia_base=150,
+            tipo='água',
+            habilidade='ash greninja',
+            movimento='cortar',
+        )
+        
+        self.sessao.scalar.return_value = pockemon_mockado 
+
+        resultado_esperado = 'Pokemon deletado com sucesso'
+
+        # Act
+        resultado = await deletar_pokemon(
+            id_pokemon=id_pokemon,
+            nome_pokemon=nome_pokemon,
+            sessao=self.sessao,
+        )
+
+        self.assertEqual(resultado['mensagem'], resultado_esperado)
+
+        # Garante que a execução teve o comportamento esperado
+        self.sessao.scalar.assert_awaited_once()
+        self.sessao.delete.assert_awaited_once_with(pockemon_mockado)
+        self.sessao.commit.assert_awaited_once()
+    
+    async def test_deletar_pokemon_levanta_excecao_se_dados_enviados_forem_invalidos(
+        self
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        nome_pokemon = True
+
+        # Act
+        # Garante que a função propaga a exceção quando os dados forem inválidos
+        with self.assertRaises(Exception):
+            await deletar_pokemon(
+                id_pokemon=id_pokemon,
+                nome_pokemon=nome_pokemon,
+                sessao=self.sessao,
+            )
+
+        # Assert
+        # Garante que nada seja executado após a falha na validação
+        self.sessao.scalar.assert_not_awaited()
+        self.sessao.delete.assert_not_awaited()
+        self.sessao.commit.assert_not_awaited()
+
+    async def test_deletar_pokemon_levanta_excecao_se_o_scalar_falhar(
+        self
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        nome_pokemon = 'venossaur'
+
+        self.sessao.scalar.side_effect = Exception(
+            'Erro ao buscar dados no banco'
+        )
+
+        # Act
+        # Garante que a função propaga a exceção quando o scalar falhar
+        with self.assertRaises(Exception):
+            await deletar_pokemon(
+                id_pokemon=id_pokemon,
+                nome_pokemon=nome_pokemon,
+                sessao=self.sessao,
+            )
+
+        # Assert
+        # Garante que a origem do problema foi o scalar
+        self.sessao.scalar.assert_awaited_once()
+        
+        # Garante que nada seja executado após falha ao buscar dados no banco
+        self.sessao.delete.assert_not_awaited()
+        self.sessao.commit.assert_not_awaited()
+    
+    async def test_deletar_pokemon_levanta_excecao_se_o_delete_falhar(
+        self
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        dados_pokemon = {
+            'nome': 'eve',
+            'altura': 24.21,
+            'peso': 87,
+            'experiencia_base': 100,
+            'tipo': 'normal',
+            'habilidade': 'dançar',
+            'movimento': 'ataque rapido',
+        }
+
+        self.sessao.scalar.return_value = Pokemon(
+            nome=dados_pokemon['nome'],
+            altura=dados_pokemon['altura'],
+            peso=dados_pokemon['peso'],
+            experiencia_base=dados_pokemon['experiencia_base'],
+            tipo=dados_pokemon['tipo'],
+            habilidade=dados_pokemon['habilidade'],
+            movimento=dados_pokemon['movimento'],
+        )
+
+        self.sessao.delete.side_effect = Exception(
+            'Erro ao executar o delete'
+        )
+        
+        # Act
+        # Garante que a função propaga a exceção quando o delete falhar
+        with self.assertRaises(Exception):
+            await deletar_pokemon(
+                id_pokemon=id_pokemon,
+                nome_pokemon=dados_pokemon['nome'],
+                sessao=self.sessao,
+            )
+
+        # Assert
+        # Garante que a origem do problema foi o delete
+        self.sessao.scalar.assert_awaited_once()
+        self.sessao.delete.assert_awaited_once()
+
+        # Garante que nada será executado após falha no delete
+        self.sessao.commit.assert_not_awaited()
+
+    async def test_deletar_pokemon_levanta_excecao_se_o_commit_falhar(
+        self
+    ) -> None:
+        
+        # Arrange
+        id_pokemon = 1
+
+        dados_pokemon = {
+            'nome': 'ralucha',
+            'altura': 24.21,
+            'peso': 87,
+            'experiencia_base': 100,
+            'tipo': 'normal',
+            'habilidade': 'dançar',
+            'movimento': 'ataque rapido',
+        }
+
+        self.sessao.scalar.return_value = Pokemon(
+            nome=dados_pokemon['nome'],
+            altura=dados_pokemon['altura'],
+            peso=dados_pokemon['peso'],
+            experiencia_base=dados_pokemon['experiencia_base'],
+            tipo=dados_pokemon['tipo'],
+            habilidade=dados_pokemon['habilidade'],
+            movimento=dados_pokemon['movimento'],
+        )
+
+        self.sessao.commit.side_effect = Exception(
+            'Erro ao executar o commit'
+        )
+        
+        # Act
+        # Garante que a função propaga a exceção quando o commit falhar
+        with self.assertRaises(Exception):
+            await deletar_pokemon(
+                id_pokemon=id_pokemon,
+                nome_pokemon=dados_pokemon['nome'],
+                sessao=self.sessao,
+            )
+
+        # Assert
+        # Garante que a origem do problema foi o commit
+        self.sessao.scalar.assert_awaited_once()
+        self.sessao.delete.assert_awaited_once()
+        self.sessao.commit.assert_awaited_once()
+
+        
+
+
 
     
     

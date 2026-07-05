@@ -71,10 +71,10 @@ async def listar_pokemon(nome_pokemon: str, sessao: AsyncSession) -> dict:
     }
 
 async def atualizar_pokemon(
-        id_pokemon: int, 
-        dados_pokemon: dict, 
-        sessao: AsyncSession
-    ) -> dict:
+    id_pokemon: int, 
+    dados_pokemon: dict, 
+    sessao: AsyncSession
+) -> dict:
     
     try:
         dados_validados = AtualizarPokemon(
@@ -109,5 +109,31 @@ async def atualizar_pokemon(
         'mensagem': 'Pokemon atualizado com sucesso',
         'pokemon': db_pokemon,
     }
-    
-    
+
+async def deletar_pokemon(
+    id_pokemon: int, 
+    nome_pokemon: str, 
+    sessao: AsyncSession,
+) -> dict:
+
+    try:
+        nome_validado = NomePokemon(nome=nome_pokemon)
+        
+        nome_validado = nome_validado.model_dump()['nome']
+
+        db_pokemon = await sessao.scalar(
+            select(Pokemon)
+            .where(Pokemon.id == id_pokemon)
+        )
+
+        if not db_pokemon or nome_validado != db_pokemon.nome:
+            raise Exception('Pokemon não encontrado')
+
+        await sessao.delete(db_pokemon)
+        await sessao.commit()
+    except Exception:
+        # Desfaz alterações parciais antes de propagar o erro
+        await sessao.rollback()
+        raise
+
+    return {'mensagem': 'Pokemon deletado com sucesso'}    
