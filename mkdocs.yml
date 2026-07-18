@@ -1,0 +1,28 @@
+site_name: Pokédex CLI
+site_description: CLI assíncrona para gerenciamento de Pokémons, integrada à PokeAPI.
+site_author: Eric
+
+theme:
+  name: readthedocs
+  highlightjs: true
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+
+nav:
+  - Início: index.md
+  - Primeiros passos:
+      - Instalação: primeiros-passos/instalacao.md
+      - Configurando o banco de dados: primeiros-passos/configuracao-banco.md
+  - Uso:
+      - CLI interativo: uso/cli.md
+  - Arquitetura:
+      - Visão geral: arquitetura/visao-geral.md
+      - Camada de serviço: arquitetura/camada-servico.md
+  - Referência da API:
+      - pokemon_service: referencia-api/pokemon-service.md
+  - Testes: testes.md
+  - Configuração do projeto: configuracao-projeto.md

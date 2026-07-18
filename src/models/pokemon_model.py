@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Float, Integer, String
+
 from core.configuracoes import Base
+
 
 # Define como a tabela do banco será
 class Pokemon(Base):

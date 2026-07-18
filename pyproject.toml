@@ -1,0 +1,21 @@
+[project]
+name = 'projeto-consumo-api'
+version = '0.1.0'
+description = '''
+CLI assíncrona para gerenciamento de pokemons, integrada à PokeAPI. 
+Permite criar, listar, atualizar e deletar registros num banco local (SQLite), 
+combinando dados próprios com informações e traduções obtidas da API pública. 
+Desenvolvida com SQLAlchemy async, Pydantic para validação, httpx para 
+requisições HTTP e suíte de testes unitários com mocks assíncronos.
+'''
+authors = [
+    {name = 'Eric', email = 'ericcardoso454@gmail.com'}
+]
+
+[tool.black]
+line-length = 88
+skip-string-normalization = true
+
+[tool.isort]
+profile = "black"
+line_length = 88
